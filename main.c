@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define DEBUG_STEP_MAX 16*12
+#define DEBUG_STEP_MAX 16*120
 
 #define INES_HEADER_SIZE 0x10
 
@@ -110,6 +110,8 @@ int main(int argc, char* argv[])
     // とりあえず16バイト出力してみる
     printf("===MEM MAP===\n");
     dump16(Cpu.pc);
+    dump16(0x0000);
+    dump16(0x801e);
     dump16(0x8059);
     dump16(0x8060);
     dump16(0x80F9);
@@ -142,14 +144,14 @@ int main(int argc, char* argv[])
             case 0x9A:
                 // TXS
                 Cpu.S = 0x0100 | Cpu.X;
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.X);
+                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.S);
                 Cpu.pc++;
                 break;
 
             case 0xA9:
                 // LDA Imm
                 Cpu.A = Cpu.mem[++Cpu.pc];
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.X);
+                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.A);
                 Cpu.pc++;
                 break;
 
@@ -238,7 +240,7 @@ int main(int argc, char* argv[])
                 {
                     uint16_t address = 0x0000;
                     address = Cpu.mem[++Cpu.pc] & 0x00FF;
-                    address = (Cpu.mem[address] << 4) | Cpu.mem[address + 1];
+                    address = (Cpu.mem[address] << 8) | Cpu.mem[address + 1];
                     Cpu.mem[address + Cpu.Y] = Cpu.A;
                     Cpu.pc++;
                 }
@@ -296,7 +298,7 @@ int main(int argc, char* argv[])
                 // LDA Abs, Y
                 {
                     uint16_t address;
-                    address = Cpu.mem[++Cpu.pc];
+                    address  = Cpu.mem[++Cpu.pc] & 0x00ff;
                     address |= (Cpu.mem[++Cpu.pc] << 8);
                     address += Cpu.Y;
                     Cpu.A = Cpu.mem[address];
@@ -310,6 +312,7 @@ int main(int argc, char* argv[])
                 Cpu.Y--;
                 statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.Y);
                 Cpu.pc++;
+                printf("Y = %d\n", Cpu.Y);
                 break;
             
             case 0x10:
@@ -373,7 +376,12 @@ void statusCheck(uint8_t check, uint8_t reg)
         //printf("\n[!!!] NOP STATUS_CARRY\n");
     }
     else if (check & STATUS_ZERO){
-        Cpu.status.statusBit.zer = reg & 0x01;
+        if(reg == 0){
+            Cpu.status.statusBit.zer = 1;
+        }
+        else{
+            Cpu.status.statusBit.zer = 0;
+        }
     }
     else if (check & STATUS_IRQ){
         Cpu.status.statusBit.irq = reg;
@@ -393,6 +401,6 @@ void statusCheck(uint8_t check, uint8_t reg)
         //printf("\n[!!!] NOP STATUS_OVERFLOW\n");
     }
     else if (check & STATUS_NEG){
-        Cpu.status.statusBit.neg = (Cpu.A & 0x80) >> 7;
+        Cpu.status.statusBit.neg = (reg & 0x80) >> 7;
     }
 }
