@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
 
             case 0xA0:
                 // LDY imm
-                Cpu.Y += Cpu.mem[++Cpu.pc];
+                Cpu.Y = Cpu.mem[++Cpu.pc];
                 statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.Y);
                 Cpu.pc++;
                 break;
@@ -319,6 +319,7 @@ int main(int argc, char* argv[])
                 // BPL Rel
                 if(Cpu.status.statusBit.neg == 0){
                     int8_t offset = Cpu.mem[Cpu.pc + 1];
+                    printf("offset + PC = %x + %x = %x\n", offset, Cpu.pc, Cpu.pc + offset);
                     Cpu.pc += offset;
                 }
                 else{
