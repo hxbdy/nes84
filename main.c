@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     FILE* fp = NULL;
     uint8_t cassette[0xA010]; // 今のところ決め打ち。可変にしたい。
 
-    fopen_s(&fp, "./sample2/sample2.nes", "rb");
+    fopen_s(&fp, "./sample1/sample1.nes", "rb");
     fread(cassette, sizeof(uint8_t), sizeof(cassette)/sizeof(cassette[0]), fp);
     printf("===CASSETTE INFO===\n");
     printf("iNES header : ");
@@ -99,9 +99,9 @@ int main(int argc, char* argv[])
     }
 
     // エミュのメモリにCROMをマッピングする
-    //for(int i=chrRomStartAddr;i<chrRomEndAddr - 1; i++){
-    //    Cpu.mem[0x8000 + i - INES_HEADER_SIZE] = cassette[i];
-    //}
+    // for(int i=chrRomStartAddr;i<chrRomEndAddr - 1; i++){
+    //     Cpu.mem[0x8000 + i - INES_HEADER_SIZE] = cassette[i];
+    // }
 
     // リセット。基本は0x8000になるはず
     Cpu.pc = Cpu.mem[0xFFFC] | (Cpu.mem[0xFFFD] << 8);
@@ -139,6 +139,7 @@ int main(int argc, char* argv[])
                 Cpu.X = Cpu.mem[++Cpu.pc];
                 statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.X);
                 Cpu.pc++;
+                printf("X = %d\n", Cpu.X);
                 break;
 
             case 0x9A:
@@ -197,9 +198,7 @@ int main(int argc, char* argv[])
                     int8_t offset = Cpu.mem[Cpu.pc + 1];
                     Cpu.pc += offset;
                 }
-                else{
-                    Cpu.pc += 2;
-                }
+                Cpu.pc += 2;
                 break;
 
             case 0xC6:
@@ -289,9 +288,7 @@ int main(int argc, char* argv[])
                     int8_t offset = Cpu.mem[Cpu.pc + 1];
                     Cpu.pc += offset;
                 }
-                else{
-                    Cpu.pc += 2;
-                }
+                Cpu.pc += 2;
                 break;
 
             case 0xB9:
@@ -319,12 +316,39 @@ int main(int argc, char* argv[])
                 // BPL Rel
                 if(Cpu.status.statusBit.neg == 0){
                     int8_t offset = Cpu.mem[Cpu.pc + 1];
-                    printf("offset + PC = %x + %x = %x\n", offset, Cpu.pc, Cpu.pc + offset);
                     Cpu.pc += offset;
                 }
-                else{
-                    Cpu.pc += 2;
+                Cpu.pc += 2;
+                break;
+
+            case 0x8D:
+                // STA Abs
+                {
+                    uint16_t address = 0x00;
+                    address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
+                    address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
+                    Cpu.mem[address] = Cpu.A;
+                    Cpu.pc++;
                 }
+                break;
+
+            case 0xBD:
+                // LDA Abs,X
+                {
+                    uint16_t address = 0x00;
+                    address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
+                    address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
+                    Cpu.A = Cpu.mem[address + Cpu.X];
+                    statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.A);
+                    Cpu.pc++;
+                }
+                break;
+
+            case 0xE8:
+                // INX
+                Cpu.X++;
+                statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.X);
+                Cpu.pc++;
                 break;
 
             /*
