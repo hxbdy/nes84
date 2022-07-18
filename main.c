@@ -1,48 +1,14 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define DEBUG_STEP_MAX 16*120
+#include "CPU.h"
+#include "PPU.h"
 
+#define DEBUG_STEP_MAX 16*120
 #define INES_HEADER_SIZE 0x10
 
-#define STATUS_CARRY     0x01
-#define STATUS_ZERO      0x02
-#define STATUS_IRQ       0x04
-#define STATUS_DEC       0x08
-#define STATUS_BRK       0x10
-#define STATUS_RCV       0x20
-#define STATUS_OVERFLOW  0x40
-#define STATUS_NEG       0x80
-
-// [N, V, R, B, D, I, Z, C]
-typedef struct{
-    uint8_t car : 1; // LSB
-    uint8_t zer : 1;
-    uint8_t irq : 1;
-    uint8_t dec : 1;
-    uint8_t brk : 1;
-    uint8_t rcv : 1;
-    uint8_t ovf : 1;
-    uint8_t neg : 1; // MSB
-}StatusReg;
-
-typedef union{
-    uint8_t statusByte;
-    StatusReg statusBit; 
-}Status;
-
-typedef struct {
-    uint16_t mem[0xFFFF];
-    uint16_t pc;
-    uint16_t cycle;
-    Status status;
-    uint8_t A;
-    uint8_t X;
-    uint8_t Y;
-    uint16_t S;
-    //uint8_t P; // ステータスレジスタ
-}Nes;
 Nes Cpu;
+uint8_t PPU[1024*2]; // 2KB
 
 uint8_t cycleTbl[] = {
  /* 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F */
@@ -112,6 +78,7 @@ int main(int argc, char* argv[])
     dump16(Cpu.pc);
     dump16(0x0000);
     dump16(0x801e);
+    dump16(0x804e);
     dump16(0x8059);
     dump16(0x8060);
     dump16(0x80F9);
@@ -350,6 +317,16 @@ int main(int argc, char* argv[])
                 statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.X);
                 Cpu.pc++;
                 break;
+            
+            case 0x4C:
+                // JMP abs
+                {
+                    uint16_t address = 0x00;
+                    address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
+                    address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
+                    Cpu.pc = address;
+                }
+                break;
 
             /*
             case 0x:
@@ -358,7 +335,7 @@ int main(int argc, char* argv[])
             */
 
             default:
-                printf("\n[!!!] Unknown opcode : 0x%02X\n",opcode);
+                printf("\n[CRITICAL] Unknown opcode : 0x%02X\n",opcode);
                 max = DEBUG_STEP_MAX; // 一旦終了
                 break;
         }
