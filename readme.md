@@ -3,21 +3,20 @@
 1. Development Libraries から DL して nes84 フォルダ直下に置く。  
 2. ビルド生成物(.exe)と同じ階層にSDL2.dll を置いておく。
 # How 2 build
+## Compiler
+MSVC (Visual Studio Comm 2022)
 ## VSCode
-Ctrl + Shift + P から c_cpp_properties.json を生成して includePath に以下を追加する
-```
-"${workspaceFolder}/SDL2-2.0.22/include"
-```
-
 Ctrl + Shift + P から tasks.json を生成して args に以下を設定する
 
 ```
 "args": [
-                "main.c",
+                "${workspaceFolder}/main.c",
                 "/Fe:",
-                "build/main.exe",
+                "${workspaceFolder}/build/main.exe",
                 "/Fo:",
-                "build/main.obj",
+                "${workspaceFolder}/build/main.obj",
+				"/I",
+				"${workspaceFolder}/SDL2-2.0.22/include/",
                 "/link",
                 "/LIBPATH:${workspaceFolder}/SDL2-2.0.22/lib/x64",
                 "SDL2.lib",
