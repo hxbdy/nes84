@@ -1,18 +1,16 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <SDL.h>
 
+#include "common.h"
 #include "CPU.h"
 #include "PPU.h"
+#include "render.h"
 
 #define DEBUG_STEP_MAX 16*120
 #define INES_HEADER_SIZE 0x10
 
-const int SCREEN_WIDTH  = 256;
-const int SCREEN_HEIGHT = 240;
-
 Nes Cpu;
-uint8_t PPU[1024*2]; // 2KB
+uint8_t VRAM[1024*2]; // 2KB
 
 uint8_t cycleTbl[] = {
  /* 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F */
@@ -36,39 +34,13 @@ uint8_t cycleTbl[] = {
 
 void dump16(uint16_t address);
 void statusCheck(uint8_t check, uint8_t reg);
+void dumpCROM(uint16_t start_addr, uint16_t end_addr);
 
 int main(int argc, char* argv[])
 {    
-    SDL_Window* window = NULL;
-    SDL_Surface* screenSurface = NULL;
-
-    if( SDL_Init( SDL_INIT_VIDEO ) < 0 ){
-        printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
+    if(!sdl_init()){
+        printf("SDL int error !!!\n");
     }
-    else{
-        //Create window
-        window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
-        if( window == NULL ){
-            printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
-        }
-        else{
-            //Get window surface
-            screenSurface = SDL_GetWindowSurface( window );
-
-            //Fill the surface white
-            SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0xFF, 0xFF, 0xFF ) );
-            
-            //Update the surface
-            SDL_UpdateWindowSurface( window );
-
-            //Wait two seconds
-            SDL_Delay( 2000 );
-        }
-    }
-    SDL_DestroyWindow( window );
-
-    //Quit SDL subsystems
-    SDL_Quit();
     
     // 初期化
     Cpu.S = 0x01FD; // スタックポインタ 0x0100～0x01FF(上位8bitは固定)
@@ -100,9 +72,13 @@ int main(int argc, char* argv[])
     }
 
     // エミュのメモリにCROMをマッピングする
-    // for(int i=chrRomStartAddr;i<chrRomEndAddr - 1; i++){
-    //     Cpu.mem[0x8000 + i - INES_HEADER_SIZE] = cassette[i];
-    // }
+    for(int i=chrRomStartAddr;i<chrRomEndAddr - 1; i++){
+        VRAM[i - chrRomStartAddr] = cassette[i];
+        printf("[%04X] %02X\n", i - chrRomStartAddr, VRAM[i - chrRomStartAddr]);
+    }
+
+    sdl_dot(10, 10);
+    sdl_wait();
 
     // リセット。基本は0x8000になるはず
     Cpu.pc = Cpu.mem[0xFFFC] | (Cpu.mem[0xFFFD] << 8);
@@ -379,6 +355,8 @@ int main(int argc, char* argv[])
         Cpu.cycle += cycleTbl[opcode];
     }
 
+    sdl_finalize();
+
     return 0;
 }
 
@@ -440,4 +418,10 @@ void statusCheck(uint8_t check, uint8_t reg)
     else if (check & STATUS_NEG){
         Cpu.status.statusBit.neg = (reg & 0x80) >> 7;
     }
+}
+
+// CROMをダンプして描画してみる
+void dumpCROM(uint16_t start_addr, uint16_t end_addr)
+{
+    
 }
