@@ -12,6 +12,13 @@
 Nes Cpu;
 uint8_t VRAM[1024*2]; // 2KB
 
+
+typedef struct{
+    uint16_t PPUADDR;
+    uint16_t PPUDATA;
+}PPU_T;
+PPU_T PPU;
+
 uint8_t cycleTbl[] = {
  /* 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F */
     7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6, // 0x00
@@ -32,9 +39,46 @@ uint8_t cycleTbl[] = {
     2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // 0xF0
 };
 
+// instructions table
+void SEI_Implied(Nes*);
+
+// 描画
+void draw(uint8_t cycles);
+
+// utils
 void dump16(uint16_t address);
 void statusCheck(uint8_t check, uint8_t reg);
 void dumpCROM(uint16_t start_addr, uint16_t end_addr);
+
+typedef void instruction_func_t(Nes*);
+instruction_func_t* instructions[0xff];
+void init_instructions(void)
+{
+    memset(instructions, 0, sizeof(instructions));
+    instructions[0x78] = SEI_Implied;
+}
+
+// 0x2006 PPU アドレス書き込み
+// 実行するたびに書き込み先を下位8bit->上位8bitと入れ替える
+void write_ppu_address(uint8_t add)
+{
+    // 8 -> 0 -> 8 -> ...
+    static uint16_t mask = 0x0000;
+    mask ^= 0x0008;
+
+    uint16_t shit_add = (uint16_t)add << mask;
+    PPU.PPUADDR &= (0x00ff << (8 - mask));
+    PPU.PPUADDR |= shit_add;
+}
+
+// 0x2007 PPU データ書き込み
+// 実行するたびに書き込み先アドレスをインクリメントする
+void write_ppu_data(uint8_t data)
+{
+    printf("PPU[%04x] = %02x\n", PPU.PPUADDR, data);
+    VRAM[PPU.PPUADDR] = data;
+    PPU.PPUADDR++;
+}
 
 int main(int argc, char* argv[])
 {    
@@ -74,7 +118,7 @@ int main(int argc, char* argv[])
     // エミュのメモリにCROMをマッピングする
     for(int i=chrRomStartAddr;i<chrRomEndAddr - 1; i++){
         VRAM[i - chrRomStartAddr] = cassette[i];
-        printf("[%04X] %02X\n", i - chrRomStartAddr, VRAM[i - chrRomStartAddr]);
+        //printf("[%04X] %02X\n", i - chrRomStartAddr, VRAM[i - chrRomStartAddr]);
     }
 
     sdl_dot(10, 10);
@@ -85,23 +129,23 @@ int main(int argc, char* argv[])
     printf("RESET : PC <- 0x%04X\n", Cpu.pc);
 
     // とりあえず16バイト出力してみる
-    printf("===MEM MAP===\n");
-    dump16(Cpu.pc);
-    dump16(0x0000);
-    dump16(0x801e);
-    dump16(0x804e);
-    dump16(0x8059);
-    dump16(0x8060);
-    dump16(0x80F9);
-    dump16(0x8100);
-    dump16(0x814D);
-    dump16(0x8150);
+    // printf("===MEM MAP===\n");
+    // dump16(Cpu.pc);
+    // dump16(0x0000);
+    // dump16(0x801e);
+    // dump16(0x804e);
+    // dump16(0x8059);
+    // dump16(0x8060);
+    // dump16(0x80F9);
+    // dump16(0x8100);
+    // dump16(0x814D);
+    // dump16(0x8150);
     
     printf("===PC LOG===\n");
     uint8_t opcode;
     for(int max = 0; max < DEBUG_STEP_MAX; max++){
-        if((0 < max) && (max % 16 == 0)) printf("\n");
-        printf("%04X ", Cpu.pc);
+        // if((0 < max) && (max % 16 == 0)) printf("\n");
+        // printf("%04X ", Cpu.pc);
         // fetch
         opcode = Cpu.mem[Cpu.pc];
         // decode & exe
@@ -117,7 +161,7 @@ int main(int argc, char* argv[])
                 Cpu.X = Cpu.mem[++Cpu.pc];
                 statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.X);
                 Cpu.pc++;
-                printf("X = %d\n", Cpu.X);
+                //printf("X = %d\n", Cpu.X);
                 break;
 
             case 0x9A:
@@ -287,7 +331,7 @@ int main(int argc, char* argv[])
                 Cpu.Y--;
                 statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.Y);
                 Cpu.pc++;
-                printf("Y = %d\n", Cpu.Y);
+                //printf("Y = %d\n", Cpu.Y);
                 break;
             
             case 0x10:
@@ -306,6 +350,15 @@ int main(int argc, char* argv[])
                     address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
                     address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
                     Cpu.mem[address] = Cpu.A;
+
+                    // PPUADDR
+                    if(address == 0x2006){
+                        write_ppu_address(Cpu.A);
+                    }
+                    // PPUDATA
+                    else if(address == 0x2007){
+                        write_ppu_data(Cpu.A);
+                    }
                     Cpu.pc++;
                 }
                 break;
@@ -353,11 +406,34 @@ int main(int argc, char* argv[])
 
         // 積算実行サイクル
         Cpu.cycle += cycleTbl[opcode];
+
+        // 描画
+        draw(cycleTbl[opcode] * 3);
     }
 
     sdl_finalize();
 
     return 0;
+}
+
+int ppu_cycle = 0;
+int lines = 0;
+void draw(uint8_t cycles)
+{
+    ppu_cycle += cycles;
+    if(ppu_cycle >= 341){
+        ppu_cycle -= 341;
+        lines++;
+
+        if(lines <= 240 && lines % 8 == 0){
+            // 描画
+            
+        }
+
+        if(lines == 262){
+            lines = 0;
+        }
+    }
 }
 
 // 指定アドレスから16バイトメモリから読んで出力する
@@ -424,4 +500,9 @@ void statusCheck(uint8_t check, uint8_t reg)
 void dumpCROM(uint16_t start_addr, uint16_t end_addr)
 {
     
+}
+
+void SEI_Implied(Nes* nes)
+{
+
 }
