@@ -32,7 +32,7 @@ bool sdl_init()
 		}
 
 		//Create window
-		gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+		gWindow = SDL_CreateWindow( "nes84", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
 		if( gWindow == NULL )
 		{
 			printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
@@ -80,11 +80,10 @@ void sdl_refresh()
 	SDL_RenderPresent( gRenderer );
 }
 
-void sdl_dot(int x, int y)
+void sdl_dot(int x, int y, int red, int green, int blue, int alpha)
 {
-	SDL_SetRenderDrawColor( gRenderer, 0x00, 0x0, 0x00, 0x00 );
+	SDL_SetRenderDrawColor( gRenderer, red, green, blue, alpha );
     SDL_RenderDrawPoint( gRenderer, x, y );
-	sdl_refresh();
 }
 
 void sdl_wait()

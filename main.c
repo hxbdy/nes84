@@ -6,7 +6,6 @@
 #include "PPU.h"
 #include "render.h"
 
-#define DEBUG_STEP_MAX 16*120
 #define INES_HEADER_SIZE 0x10
 
 Nes Cpu;
@@ -19,7 +18,7 @@ typedef struct{
 }PPU_T;
 PPU_T PPU;
 
-uint8_t cycleTbl[] = {
+const uint8_t cycleTbl[] = {
  /* 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F */
     7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6, // 0x00
     2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 6, 7, // 0x10
@@ -38,6 +37,39 @@ uint8_t cycleTbl[] = {
     2, 6, 3, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6, // 0xE0
     2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // 0xF0
 };
+
+typedef struct{
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+}COLOR_T;
+const COLOR_T color_table[] = {
+  {0x80, 0x80, 0x80}, {0x00, 0x3D, 0xA6}, {0x00, 0x12, 0xB0}, {0x44, 0x00, 0x96},
+  {0xA1, 0x00, 0x5E}, {0xC7, 0x00, 0x28}, {0xBA, 0x06, 0x00}, {0x8C, 0x17, 0x00},
+  {0x5C, 0x2F, 0x00}, {0x10, 0x45, 0x00}, {0x05, 0x4A, 0x00}, {0x00, 0x47, 0x2E},
+  {0x00, 0x41, 0x66}, {0x00, 0x00, 0x00}, {0x05, 0x05, 0x05}, {0x05, 0x05, 0x05},
+  {0xC7, 0xC7, 0xC7}, {0x00, 0x77, 0xFF}, {0x21, 0x55, 0xFF}, {0x82, 0x37, 0xFA},
+  {0xEB, 0x2F, 0xB5}, {0xFF, 0x29, 0x50}, {0xFF, 0x22, 0x00}, {0xD6, 0x32, 0x00},
+  {0xC4, 0x62, 0x00}, {0x35, 0x80, 0x00}, {0x05, 0x8F, 0x00}, {0x00, 0x8A, 0x55},
+  {0x00, 0x99, 0xCC}, {0x21, 0x21, 0x21}, {0x09, 0x09, 0x09}, {0x09, 0x09, 0x09},
+  {0xFF, 0xFF, 0xFF}, {0x0F, 0xD7, 0xFF}, {0x69, 0xA2, 0xFF}, {0xD4, 0x80, 0xFF},
+  {0xFF, 0x45, 0xF3}, {0xFF, 0x61, 0x8B}, {0xFF, 0x88, 0x33}, {0xFF, 0x9C, 0x12},
+  {0xFA, 0xBC, 0x20}, {0x9F, 0xE3, 0x0E}, {0x2B, 0xF0, 0x35}, {0x0C, 0xF0, 0xA4},
+  {0x05, 0xFB, 0xFF}, {0x5E, 0x5E, 0x5E}, {0x0D, 0x0D, 0x0D}, {0x0D, 0x0D, 0x0D},
+  {0xFF, 0xFF, 0xFF}, {0xA6, 0xFC, 0xFF}, {0xB3, 0xEC, 0xFF}, {0xDA, 0xAB, 0xEB},
+  {0xFF, 0xA8, 0xF9}, {0xFF, 0xAB, 0xB3}, {0xFF, 0xD2, 0xB0}, {0xFF, 0xEF, 0xA6},
+  {0xFF, 0xF7, 0x9C}, {0xD7, 0xE8, 0x95}, {0xA6, 0xED, 0xAF}, {0xA2, 0xF2, 0xDA},
+  {0x99, 0xFF, 0xFC}, {0xDD, 0xDD, 0xDD}, {0x11, 0x11, 0x11}, {0x11, 0x11, 0x11},
+};
+
+typedef struct{
+    uint8_t no : 1;
+}PaletteNo;
+
+typedef union{
+    uint64_t  palette_64;
+    PaletteNo palette_array[64]; 
+}Palette;
 
 // instructions table
 void SEI_Implied(Nes*);
@@ -81,7 +113,7 @@ void write_ppu_data(uint8_t data)
 }
 
 int main(int argc, char* argv[])
-{    
+{
     if(!sdl_init()){
         printf("SDL int error !!!\n");
     }
@@ -121,8 +153,6 @@ int main(int argc, char* argv[])
         //printf("[%04X] %02X\n", i - chrRomStartAddr, VRAM[i - chrRomStartAddr]);
     }
 
-    sdl_dot(10, 10);
-    sdl_wait();
 
     // リセット。基本は0x8000になるはず
     Cpu.pc = Cpu.mem[0xFFFC] | (Cpu.mem[0xFFFD] << 8);
@@ -143,9 +173,7 @@ int main(int argc, char* argv[])
     
     printf("===PC LOG===\n");
     uint8_t opcode;
-    for(int max = 0; max < DEBUG_STEP_MAX; max++){
-        // if((0 < max) && (max % 16 == 0)) printf("\n");
-        // printf("%04X ", Cpu.pc);
+    while(true){
         // fetch
         opcode = Cpu.mem[Cpu.pc];
         // decode & exe
@@ -400,7 +428,6 @@ int main(int argc, char* argv[])
 
             default:
                 printf("\n[CRITICAL] Unknown opcode : 0x%02X\n",opcode);
-                max = DEBUG_STEP_MAX; // 一旦終了
                 break;
         }
 
@@ -425,13 +452,72 @@ void draw(uint8_t cycles)
         ppu_cycle -= 341;
         lines++;
 
-        if(lines <= 240 && lines % 8 == 0){
+        if((lines <= 240) && ((lines % 8) == 0)){
             // 描画
-            
+            int y = (lines / 8) - 1;
+            for(int x=0;x<32;x++){
+
+                // パレット番号取得
+                uint8_t pal_byte = VRAM[0x23c0 + 8 * (y / 4) + (x / 4)];
+                {
+                    uint8_t bit_shift;
+                    if(((x % 2) == 0) && ((y % 2) == 0)){
+                        bit_shift = 0;
+                    }
+                    else if(((x % 2) == 0) && ((y % 2) != 0)){
+                        bit_shift = 2;
+                    }
+                    else if(((x % 2) != 0) && ((y % 2) == 0)){
+                        bit_shift = 1;
+                    }
+                    else{
+                        bit_shift = 3;
+                    }
+                    pal_byte = (pal_byte >> (2*bit_shift)) & 3;
+                }
+
+                uint8_t pal[8*8] = {0};
+                {
+                    uint16_t chr = (uint16_t)VRAM[0x2000 + 32 * y + x] * 16;
+
+                    // 8*8の色番号をpal配列に格納
+                    // 最初の8バイトが各1bit目、次の8バイトが2bit目
+                    for(int i=0; i<16; i++){
+                        uint8_t color_no = VRAM[chr+i];
+                        for(uint8_t j=0;j<8;j++){
+                            uint8_t tmp = (color_no >> (7 - j)) & 0x01;
+                            pal[(i%8)*8 + j] |= (tmp << (i/8));
+                        }
+                    }
+                }
+
+                // RGB読み出し
+                for(uint8_t bg_y=0; bg_y<8; bg_y++){
+                    for(uint8_t bg_x=0; bg_x<8; bg_x++){
+                        uint8_t color = VRAM[0x3f00 + 4 * pal_byte + pal[8*bg_y + bg_x]];
+                        COLOR_T rgb = color_table[color];
+                        sdl_dot((x*8)+bg_x, (y*8)+bg_y, rgb.red, rgb.green, rgb.blue, 0);
+                    }
+                }
+                
+                // debug
+                // if((y == 14) && (9 <= x) && (x <= 21)){
+                //     for(int debug_y=0; debug_y<8; debug_y++){
+                //         for(int debug_x=0; debug_x<8; debug_x++){
+                //             printf("%2d", pal[debug_y*8 + debug_x]);
+                //         }
+                //         printf("\n");
+                //     }
+                //     printf("\n");
+                // }
+            }
+            sdl_refresh();
         }
 
         if(lines == 262){
+            printf("lines == 262 !!!\n");
             lines = 0;
+            sdl_wait();
         }
     }
 }
