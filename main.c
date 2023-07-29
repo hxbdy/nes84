@@ -458,7 +458,7 @@ void draw(uint8_t cycles)
             for(int x=0;x<32;x++){
 
                 // パレット番号取得
-                uint8_t pal_byte = VRAM[0x23c0 + 8 * (y / 4) + (x / 4)];
+                uint8_t pal_byte = VRAM[PPU_MEMMAP_ATTR_TABLE_1_START + 8 * (y / 4) + (x / 4)];
                 {
                     uint8_t bit_shift;
                     if(((x % 2) == 0) && ((y % 2) == 0)){
@@ -478,7 +478,7 @@ void draw(uint8_t cycles)
 
                 uint8_t pal[8*8] = {0};
                 {
-                    uint16_t chr = (uint16_t)VRAM[0x2000 + 32 * y + x] * 16;
+                    uint16_t chr = (uint16_t)VRAM[PPU_MEMMAP_NAME_TABLE_1_START + 32 * y + x] * 16;
 
                     // 8*8の色番号をpal配列に格納
                     // 最初の8バイトが各1bit目、次の8バイトが2bit目
@@ -494,22 +494,11 @@ void draw(uint8_t cycles)
                 // RGB読み出し
                 for(uint8_t bg_y=0; bg_y<8; bg_y++){
                     for(uint8_t bg_x=0; bg_x<8; bg_x++){
-                        uint8_t color = VRAM[0x3f00 + 4 * pal_byte + pal[8*bg_y + bg_x]];
+                        uint8_t color = VRAM[PPU_MEMMAP_BG_PALETTE_TABLE_START + 4 * pal_byte + pal[8*bg_y + bg_x]];
                         COLOR_T rgb = color_table[color];
                         sdl_dot((x*8)+bg_x, (y*8)+bg_y, rgb.red, rgb.green, rgb.blue, 0);
                     }
                 }
-                
-                // debug
-                // if((y == 14) && (9 <= x) && (x <= 21)){
-                //     for(int debug_y=0; debug_y<8; debug_y++){
-                //         for(int debug_x=0; debug_x<8; debug_x++){
-                //             printf("%2d", pal[debug_y*8 + debug_x]);
-                //         }
-                //         printf("\n");
-                //     }
-                //     printf("\n");
-                // }
             }
             sdl_refresh();
         }
