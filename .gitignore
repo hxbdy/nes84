@@ -1,3 +1,5 @@
-.vscode/
+﻿.vscode/
 build/
 SDL2-2.0.22/
+giko/
+nesasm_2.51p_beta3/
