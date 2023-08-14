@@ -3,13 +3,14 @@
 
 #include <stdint.h>
 
+#include "common.h"
 #include "CPU.h"
 
 typedef void instruction_func_t(Nes*);
 
 
 void init_instructions(void);
-void exe_instruction(Nes* nes, uint8_t opcode);
+bool exe_instruction(Nes* nes, uint8_t opcode);
 
 // LDA
 void LDA_Immediate(Nes*);

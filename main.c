@@ -104,8 +104,14 @@ void write_ppu_data(uint8_t data)
 
 int main(int argc, char* argv[])
 {
+    if(argc != 2){
+        printf("usage> nes84.exe PATH.nes");
+        return -1;
+    }
+
     if(!sdl_init()){
         printf("SDL int error !!!\n");
+        return -1;
     }
     
     // 初期化
@@ -115,7 +121,8 @@ int main(int argc, char* argv[])
     FILE* fp = NULL;
     uint8_t cassette[0xA010]; // 今のところ決め打ち。可変にしたい。
 
-    fopen_s(&fp, "./sample1/sample1.nes", "rb");
+    printf("cassette path = %s\n", argv[1]);
+    fopen_s(&fp, argv[1], "rb");
     fread(cassette, sizeof(uint8_t), sizeof(cassette)/sizeof(cassette[0]), fp);
     printf("===CASSETTE INFO===\n");
     printf("iNES header : ");
@@ -145,7 +152,7 @@ int main(int argc, char* argv[])
 
 
     // リセット。基本は0x8000になるはず
-    Cpu.pc = Cpu.mem[0xFFFC] | (Cpu.mem[0xFFFD] << 8);
+    Cpu.pc = 0x8000; // Cpu.mem[0xFFFC] | (Cpu.mem[0xFFFD] << 8);
     printf("RESET : PC <- 0x%04X\n", Cpu.pc);
 
     // 命令テーブル初期化    
@@ -153,12 +160,17 @@ int main(int argc, char* argv[])
     
     printf("===PC LOG===\n");
     uint8_t opcode;
+    bool result;
     while(true){
         // fetch
         opcode = Cpu.mem[Cpu.pc];
 
         // 命令実行
-        exe_instruction(&Cpu, opcode);
+        result = exe_instruction(&Cpu, opcode);
+        if(result == false){
+            printf("CPU ERROR\n");
+            return -1;
+        }
 
         // 積算実行サイクル
         Cpu.cycle += cycleTbl[opcode];

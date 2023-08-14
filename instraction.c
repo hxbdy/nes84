@@ -1,5 +1,6 @@
 ﻿#include <stdint.h>
 
+#include "common.h"
 #include "instraction.h"
 #include "CPU.h"
 
@@ -35,9 +36,14 @@ void init_instructions(void)
     instructions[0xE8] = INX_Implied;
 }
 
-void exe_instruction(Nes* nes, uint8_t opcode)
+bool exe_instruction(Nes* nes, uint8_t opcode)
 {
+    if(instructions[opcode] == NULL){
+        printf("Unknown opcode : 0x%02X\n", opcode);
+        return false;
+    }
     instructions[opcode](nes);
+    return true;
 }
 
 void SEI_Implied(Nes* nes)
