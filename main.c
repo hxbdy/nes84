@@ -244,9 +244,19 @@ void draw(uint8_t cycles)
             sdl_refresh();
         }
 
+        // 240 lines + VBlank (20 lines) + post-render/pre-render scanline (2 lines)
+        // = 262 lines
+        if(lines >= 240){
+            // VBlank set
+            Cpu.mem[0x2002] |= 0x80;
+        }
+        
         if(lines == 262){
             printf("lines == 262 !!!\n");
             lines = 0;
+
+            // VBlank clr
+            Cpu.mem[0x2002] &= 0x7F;
             sdl_wait();
         }
     }
@@ -282,7 +292,8 @@ void statusCheck(uint8_t check, uint8_t reg)
         // この関数内では跨いだか判断できないため今は呼び出し元で実現している
         //printf("\n[!!!] NOP STATUS_CARRY\n");
     }
-    else if (check & STATUS_ZERO){
+
+    if(check & STATUS_ZERO){
         if(reg == 0){
             Cpu.status.statusBit.zer = 1;
         }
@@ -290,24 +301,30 @@ void statusCheck(uint8_t check, uint8_t reg)
             Cpu.status.statusBit.zer = 0;
         }
     }
-    else if (check & STATUS_IRQ){
+
+    if(check & STATUS_IRQ){
         Cpu.status.statusBit.irq = reg;
     }
-    else if (check & STATUS_DEC){
+    
+    if(check & STATUS_DEC){
         
     }
-    else if (check & STATUS_BRK){
+    
+    if(check & STATUS_BRK){
         
     }
-    else if (check & STATUS_RCV){
+
+    if(check & STATUS_RCV){
         
     }
-    else if (check & STATUS_OVERFLOW){
+
+    if(check & STATUS_OVERFLOW){
         // 0x7f - 0x80 を跨いだときにセットする
         // この関数内では跨いだか判断できないため今は呼び出し元で実現している
         //printf("\n[!!!] NOP STATUS_OVERFLOW\n");
     }
-    else if (check & STATUS_NEG){
+
+    if(check & STATUS_NEG){
         Cpu.status.statusBit.neg = (reg & 0x80) >> 7;
     }
 }
