@@ -28,6 +28,7 @@ void init_instructions(void)
     instructions[0xA2] = LDX_Immediate;
     instructions[0xA4] = LDY_Zeropage;
     instructions[0xA9] = LDA_Immediate;
+    instructions[0xAD] = LDA_Absolute;
     instructions[0xB0] = BCS_Relative;
     instructions[0xB9] = LDA_Absolute_Y;
     instructions[0xBD] = LDA_Absolute_X;
@@ -268,4 +269,14 @@ void JMP_Absolute(Nes* nes)
     address  = nes->mem[++nes->pc] & 0x00FF;        // under
     address |= (nes->mem[++nes->pc] << 8) & 0xFF00; // upper
     nes->pc = address;
+}
+
+void LDA_Absolute(Nes* nes)
+{
+    uint16_t address = 0x00;
+    address  = nes->mem[++nes->pc] & 0x00FF;        // under
+    address |= (nes->mem[++nes->pc] << 8) & 0xFF00; // upper
+    nes->A = nes->mem[address];
+    nes->pc++;
+    statusCheck(STATUS_NEG | STATUS_ZERO, nes->A);
 }
