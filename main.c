@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdint.h>
 
 #include "common.h"
@@ -73,9 +73,6 @@ typedef union{
     uint64_t  palette_64;
     PaletteNo palette_array[64]; 
 }Palette;
-
-// instructions table
-void SEI_Implied(Nes*);
 
 // 描画
 void draw(uint8_t cycles);

@@ -1,4 +1,4 @@
-#if !defined _RENDER_H_
+﻿#if !defined _RENDER_H_
 #define _RENDER_H_
 
 #include "common.h"
