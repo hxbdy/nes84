@@ -109,8 +109,13 @@ void write_ppu_data(uint8_t data)
 
 int main(int argc, char* argv[])
 {
+    if(argc != 2){
+        printf("usage> nes84.exe path_to.nes\n");
+        return -1;
+    }
     if(!sdl_init()){
         printf("SDL int error !!!\n");
+        return -1;
     }
     
     // 初期化
@@ -120,7 +125,7 @@ int main(int argc, char* argv[])
     FILE* fp = NULL;
     uint8_t cassette[0xA010]; // 今のところ決め打ち。可変にしたい。
 
-    fopen_s(&fp, "./sample1/sample1.nes", "rb");
+    fopen_s(&fp, argv[1], "rb");
     fread(cassette, sizeof(uint8_t), sizeof(cassette)/sizeof(cassette[0]), fp);
     printf("===CASSETTE INFO===\n");
     printf("iNES header : ");
