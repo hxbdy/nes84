@@ -5,8 +5,11 @@
 #include "CPU.h"
 #include "PPU.h"
 #include "render.h"
+#include "instruction.h"
 
 #define INES_HEADER_SIZE 0x10
+
+extern instruction_func_t* instructions[];
 
 Nes Cpu;
 uint8_t VRAM[1024*2]; // 2KB
@@ -82,13 +85,8 @@ void dump16(uint16_t address);
 void statusCheck(uint8_t check, uint8_t reg);
 void dumpCROM(uint16_t start_addr, uint16_t end_addr);
 
-typedef void instruction_func_t(Nes*);
-instruction_func_t* instructions[0xff];
-void init_instructions(void)
-{
-    memset(instructions, 0, sizeof(instructions));
-    instructions[0x78] = SEI_Implied;
-}
+
+
 
 // 0x2006 PPU アドレス書き込み
 // 実行するたびに書き込み先を下位8bit->上位8bitと入れ替える
@@ -158,278 +156,17 @@ int main(int argc, char* argv[])
     Cpu.pc = Cpu.mem[0xFFFC] | (Cpu.mem[0xFFFD] << 8);
     printf("RESET : PC <- 0x%04X\n", Cpu.pc);
 
-    // とりあえず16バイト出力してみる
-    // printf("===MEM MAP===\n");
-    // dump16(Cpu.pc);
-    // dump16(0x0000);
-    // dump16(0x801e);
-    // dump16(0x804e);
-    // dump16(0x8059);
-    // dump16(0x8060);
-    // dump16(0x80F9);
-    // dump16(0x8100);
-    // dump16(0x814D);
-    // dump16(0x8150);
+    // 命令テーブル初期化    
+    init_instructions();
     
     printf("===PC LOG===\n");
     uint8_t opcode;
     while(true){
         // fetch
         opcode = Cpu.mem[Cpu.pc];
-        // decode & exe
-        switch(opcode){
-            case 0x78:
-                // IRQ割込み禁止, 今のところ無視
-                statusCheck(STATUS_IRQ, 1);
-                Cpu.pc++;
-                break;
 
-            case 0xA2:
-                // LDX Imm
-                Cpu.X = Cpu.mem[++Cpu.pc];
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.X);
-                Cpu.pc++;
-                //printf("X = %d\n", Cpu.X);
-                break;
-
-            case 0x9A:
-                // TXS
-                Cpu.S = 0x0100 | Cpu.X;
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.S);
-                Cpu.pc++;
-                break;
-
-            case 0xA9:
-                // LDA Imm
-                Cpu.A = Cpu.mem[++Cpu.pc];
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.A);
-                Cpu.pc++;
-                break;
-
-            case 0x85:
-                // STA zpg
-                Cpu.mem[Cpu.mem[++Cpu.pc]] = Cpu.A;
-                Cpu.pc++;
-                break;
-
-            case 0x20:
-                // JSR abs
-                uint16_t ad;
-                ad = Cpu.mem[++Cpu.pc]; // 下位
-                ad |= Cpu.mem[++Cpu.pc] << 8; // 上位
-
-                // 現在のPCをスタックに退避
-                // printf("SP = 0x%04X\n", Cpu.S);
-                Cpu.mem[Cpu.S] = (Cpu.pc & 0xFF00) >> 8; // 上位
-                Cpu.S--;
-                // printf("SP = 0x%04X\n", Cpu.S);
-                Cpu.mem[Cpu.S] = (Cpu.pc & 0x00FF); // 下位
-                Cpu.S--;
-
-                Cpu.pc = ad;
-                break;
-
-            case 0x98:
-                // TYA imp
-                Cpu.A = Cpu.Y;
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.A);
-                Cpu.pc++;
-
-            case 0xA4:
-                // LDY zpg
-                Cpu.Y = Cpu.mem[++Cpu.pc];
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.Y);
-                Cpu.pc++;
-                break;
-
-            case 0xD0:
-                // BNE Rel
-                if(Cpu.status.statusBit.zer == 0){
-                    int8_t offset = Cpu.mem[Cpu.pc + 1];
-                    Cpu.pc += offset;
-                }
-                Cpu.pc += 2;
-                break;
-
-            case 0xC6:
-                // DEC zpg
-                Cpu.pc++;
-                Cpu.mem[Cpu.pc] = Cpu.mem[Cpu.pc]--;
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.mem[Cpu.pc]);
-                Cpu.pc++;
-                break;
-
-            case 0x01:
-                // ORA (Ind,X)
-                {
-                    uint16_t address = 0x0000;
-                    address = (Cpu.mem[++Cpu.pc] + Cpu.X) & 0x00FF;
-                    address = (Cpu.mem[address + 1] << 4) | Cpu.mem[address];
-                    Cpu.A |= Cpu.mem[address];
-                    Cpu.pc++;
-                }
-                break;
-
-            case 0x00:
-                // BRK imp
-                // 今のところ何もしない
-                statusCheck(STATUS_BRK, 0);
-                Cpu.pc++;
-                break;
-
-            case 0xA0:
-                // LDY imm
-                Cpu.Y = Cpu.mem[++Cpu.pc];
-                statusCheck(STATUS_ZERO | STATUS_NEG, Cpu.Y);
-                Cpu.pc++;
-                break;
-
-            case 0x91:
-                // STA (ind),Y
-                {
-                    uint16_t address = 0x0000;
-                    address = Cpu.mem[++Cpu.pc] & 0x00FF;
-                    address = (Cpu.mem[address] << 8) | Cpu.mem[address + 1];
-                    Cpu.mem[address + Cpu.Y] = Cpu.A;
-                    Cpu.pc++;
-                }
-                break;
-
-            case 0x60:
-                // Return from Subroutine
-                {
-                    uint16_t address = 0x0000;
-                    address = (Cpu.mem[Cpu.S + 2] << 8) | Cpu.mem[Cpu.S + 1];
-                    Cpu.S += 2;
-                    Cpu.pc = address;
-                    Cpu.pc++;
-                }
-                break;
-
-            case 0x38:
-                // SEC
-                Cpu.status.statusBit.car = 1;
-                Cpu.pc++;
-                break;
-
-            case 0x65:
-                // ADC (A + メモリ + キャリーフラグ) を演算して結果をAへ返します。[N.V.0.0.0.0.Z.C]
-                uint8_t beforeA;
-                beforeA = Cpu.A;
-                Cpu.A = Cpu.A + Cpu.mem[++Cpu.pc] + Cpu.status.statusBit.car;
-                if((beforeA < 0x80) && (Cpu.A >= 0x80)){
-                    // 0x80を跨いだ
-                    Cpu.status.statusBit.ovf = 1;
-                }
-                else{
-                    Cpu.status.statusBit.ovf = 0;
-                }
-                if(Cpu.A < beforeA){
-                    // 0xFFを超えた
-                    Cpu.status.statusBit.car = 1;
-                }
-                statusCheck(STATUS_CARRY | STATUS_NEG | STATUS_OVERFLOW | STATUS_ZERO, Cpu.A);
-                Cpu.pc++;
-                break;
-
-            case 0xB0:
-                // BCS Rel
-                if(Cpu.status.statusBit.car == 1){
-                    int8_t offset = Cpu.mem[Cpu.pc + 1];
-                    Cpu.pc += offset;
-                }
-                Cpu.pc += 2;
-                break;
-
-            case 0xB9:
-                // LDA Abs, Y
-                {
-                    uint16_t address;
-                    address  = Cpu.mem[++Cpu.pc] & 0x00ff;
-                    address |= (Cpu.mem[++Cpu.pc] << 8);
-                    address += Cpu.Y;
-                    Cpu.A = Cpu.mem[address];
-                    statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.A);
-                }
-                Cpu.pc++;
-                break;
-
-            case 0x88:
-                // DEY
-                Cpu.Y--;
-                statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.Y);
-                Cpu.pc++;
-                //printf("Y = %d\n", Cpu.Y);
-                break;
-            
-            case 0x10:
-                // BPL Rel
-                if(Cpu.status.statusBit.neg == 0){
-                    int8_t offset = Cpu.mem[Cpu.pc + 1];
-                    Cpu.pc += offset;
-                }
-                Cpu.pc += 2;
-                break;
-
-            case 0x8D:
-                // STA Abs
-                {
-                    uint16_t address = 0x00;
-                    address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
-                    address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
-                    Cpu.mem[address] = Cpu.A;
-
-                    // PPUADDR
-                    if(address == 0x2006){
-                        write_ppu_address(Cpu.A);
-                    }
-                    // PPUDATA
-                    else if(address == 0x2007){
-                        write_ppu_data(Cpu.A);
-                    }
-                    Cpu.pc++;
-                }
-                break;
-
-            case 0xBD:
-                // LDA Abs,X
-                {
-                    uint16_t address = 0x00;
-                    address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
-                    address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
-                    Cpu.A = Cpu.mem[address + Cpu.X];
-                    statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.A);
-                    Cpu.pc++;
-                }
-                break;
-
-            case 0xE8:
-                // INX
-                Cpu.X++;
-                statusCheck(STATUS_NEG | STATUS_ZERO, Cpu.X);
-                Cpu.pc++;
-                break;
-            
-            case 0x4C:
-                // JMP abs
-                {
-                    uint16_t address = 0x00;
-                    address  = Cpu.mem[++Cpu.pc] & 0x00FF;        // under
-                    address |= (Cpu.mem[++Cpu.pc] << 8) & 0xFF00; // upper
-                    Cpu.pc = address;
-                }
-                break;
-
-            /*
-            case 0x:
-                Cpu.pc++;
-                break;
-            */
-
-            default:
-                printf("\n[CRITICAL] Unknown opcode : 0x%02X\n",opcode);
-                break;
-        }
+        // 命令実行
+        instructions[opcode](&Cpu);
 
         // 積算実行サイクル
         Cpu.cycle += cycleTbl[opcode];
@@ -575,9 +312,4 @@ void statusCheck(uint8_t check, uint8_t reg)
 void dumpCROM(uint16_t start_addr, uint16_t end_addr)
 {
     
-}
-
-void SEI_Implied(Nes* nes)
-{
-
 }
