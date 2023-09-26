@@ -168,6 +168,10 @@ int main(int argc, char* argv[])
         opcode = Cpu.mem[Cpu.pc];
 
         // 命令実行
+        if(instructions[opcode] == NULL){
+            printf("Unknown opcode : 0x%02X\n", opcode);
+            break;
+        }
         instructions[opcode](&Cpu);
 
         // 積算実行サイクル
