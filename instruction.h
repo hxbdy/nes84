@@ -1,16 +1,12 @@
-﻿#if !defined _INSTRUCTION_H_
+#if !defined _INSTRUCTION_H_
 #define _INSTRUCTION_H_
 
-#include <stdint.h>
-
-#include "common.h"
 #include "CPU.h"
 
 typedef void instruction_func_t(Nes*);
 
 
 void init_instructions(void);
-bool exe_instruction(Nes* nes, uint8_t opcode);
 
 // LDA
 void LDA_Immediate(Nes*);

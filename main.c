@@ -5,9 +5,11 @@
 #include "CPU.h"
 #include "PPU.h"
 #include "render.h"
-#include "instraction.h"
+#include "instruction.h"
 
 #define INES_HEADER_SIZE 0x10
+
+extern instruction_func_t* instructions[];
 
 Nes Cpu;
 uint8_t VRAM[1024*2]; // 2KB
@@ -80,6 +82,9 @@ void dump16(uint16_t address);
 void statusCheck(uint8_t check, uint8_t reg);
 void dumpCROM(uint16_t start_addr, uint16_t end_addr);
 
+
+
+
 // 0x2006 PPU アドレス書き込み
 // 実行するたびに書き込み先を下位8bit->上位8bitと入れ替える
 void write_ppu_address(uint8_t add)
@@ -105,10 +110,9 @@ void write_ppu_data(uint8_t data)
 int main(int argc, char* argv[])
 {
     if(argc != 2){
-        printf("usage> nes84.exe PATH.nes");
+        printf("usage> nes84.exe path_to.nes\n");
         return -1;
     }
-
     if(!sdl_init()){
         printf("SDL int error !!!\n");
         return -1;
@@ -121,7 +125,6 @@ int main(int argc, char* argv[])
     FILE* fp = NULL;
     uint8_t cassette[0xA010]; // 今のところ決め打ち。可変にしたい。
 
-    printf("cassette path = %s\n", argv[1]);
     fopen_s(&fp, argv[1], "rb");
     fread(cassette, sizeof(uint8_t), sizeof(cassette)/sizeof(cassette[0]), fp);
     printf("===CASSETTE INFO===\n");
@@ -166,11 +169,11 @@ int main(int argc, char* argv[])
         opcode = Cpu.mem[Cpu.pc];
 
         // 命令実行
-        result = exe_instruction(&Cpu, opcode);
-        if(result == false){
-            printf("CPU ERROR\n");
-            return -1;
+        if(instructions[opcode] == NULL){
+            printf("Unknown opcode : 0x%02X\n", opcode);
+            break;
         }
+        instructions[opcode](&Cpu);
 
         // 積算実行サイクル
         Cpu.cycle += cycleTbl[opcode];
