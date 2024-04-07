@@ -17,6 +17,7 @@ void init_instructions(void)
     instructions[0x01] = ORA_Indirect_X;
     instructions[0x00] = BRK_Implied;
     instructions[0xA0] = LDY_Immediate;
+    instructions[0xAD] = LDA_Absolute;
     instructions[0x91] = STA_Indirect_Y;
     instructions[0x60] = RTS_Implied;
     instructions[0x38] = SEC_Implied;
@@ -286,5 +287,17 @@ void JMP_Absolute(Nes *nes)
         address = nes->mem[++nes->pc] & 0x00FF;         // under
         address |= (nes->mem[++nes->pc] << 8) & 0xFF00; // upper
         nes->pc = address;
+    }
+}
+
+void LDA_Absolute(Nes *nes)
+{
+    {
+        uint16_t address = 0x00;
+        address = nes->mem[++nes->pc] & 0x00FF;         // under
+        address |= (nes->mem[++nes->pc] << 8) & 0xFF00; // upper
+        nes->A = nes->mem[address];
+        statusCheck(STATUS_NEG | STATUS_ZERO, nes->A);
+        nes->pc++;
     }
 }
