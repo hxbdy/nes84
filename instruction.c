@@ -28,6 +28,7 @@ void init_instructions(void)
     instructions[0x10] = BPL_Relative;
     instructions[0x8D] = STA_Absolute;
     instructions[0xBD] = LDA_Absolute_X;
+    instructions[0xE0] = CPX_Immediate;
     instructions[0xE8] = INX_Implied;
     instructions[0x4C] = JMP_Absolute;
 }
@@ -300,4 +301,17 @@ void LDA_Absolute(Nes *nes)
         statusCheck(STATUS_NEG | STATUS_ZERO, nes->A);
         nes->pc++;
     }
+}
+
+void CPX_Immediate(Nes *nes)
+{
+    uint8_t val = nes->X - nes->mem[++nes->pc];
+    if(val >= 0){
+        nes->status.statusBit.car = 1;
+    }
+    else{
+        nes->status.statusBit.car = 0;
+    }
+    statusCheck(STATUS_NEG | STATUS_ZERO, val);
+    nes->pc++;
 }
