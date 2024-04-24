@@ -248,16 +248,29 @@ void STA_Absolute(Nes *nes)
         address |= (nes->mem[++nes->pc] << 8) & 0xFF00; // upper
         nes->mem[address] = nes->A;
 
-        // PPUADDR
-        if (address == 0x2006)
+        switch (address)
         {
+        case 0x2003:
+            write_oam_address(nes->A);
+            break;
+        case 0x2004:
+            write_oam_access(nes->A);
+            break;
+        case 0x2006:
+            // $2006 (VRAMアドレスレジスタ)
+            // このレジスタには2回連続で書き込みます。
             write_ppu_address(nes->A);
-        }
-        // PPUDATA
-        else if (address == 0x2007)
-        {
+            break;
+        case 0x2007:
+            // $2007 (VRAMアクセスレジスタ)
+            // VRAMからのデータ読み込み、VRAMへのデータ書き込みを行います。
             write_ppu_data(nes->A);
+            break;
+        
+        default:
+            break;
         }
+
         nes->pc++;
     }
 }

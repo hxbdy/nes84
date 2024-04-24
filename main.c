@@ -21,6 +21,14 @@ typedef struct{
 }PPU_T;
 PPU_T PPU;
 
+typedef struct{
+    uint8_t y;            // スプライトの標示座標（Y）
+    uint8_t tile;         // キャラクタ番号
+    uint8_t attribute;    // 属性
+    uint8_t x;            // スプライトの標示座標（X）
+}SPRITE_T;
+SPRITE_T OAM[64];
+
 const uint8_t cycleTbl[] = {
  /* 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F */
     7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6, // 0x00
@@ -83,7 +91,39 @@ void statusCheck(uint8_t check, uint8_t reg);
 void dumpCROM(uint16_t start_addr, uint16_t end_addr);
 
 
+// 0x2003 書き込むスプライトのパターンテーブルのアドレス
+uint8_t sprite_index = 0;
+void write_oam_address(uint8_t add)
+{
+    sprite_index = add;
+}
 
+// 0x2004 書き込むスプライトの情報指定
+void write_oam_access(uint8_t add)
+{
+    static uint8_t rot = 0;
+    switch (rot)
+    {
+    case 0:
+        OAM[sprite_index].y = add;
+        break;
+    case 1:
+        OAM[sprite_index].tile = add;
+        break;
+    case 2:
+        OAM[sprite_index].attribute = add;
+        break;
+    case 3:
+        OAM[sprite_index].x = add;
+        break;
+    default:
+        break;
+    }
+
+    if(++rot > 3){
+        rot = 0;
+    }
+}
 
 // 0x2006 PPU アドレス書き込み
 // 実行するたびに書き込み先を下位8bit->上位8bitと入れ替える
