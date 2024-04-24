@@ -91,6 +91,28 @@ void statusCheck(uint8_t check, uint8_t reg);
 void dumpCROM(uint16_t start_addr, uint16_t end_addr);
 
 
+typedef struct{
+    uint8_t screen_0 : 1; // LSB
+    uint8_t screen_1 : 1;
+    uint8_t vram     : 1;
+    uint8_t sp_chr   : 1;
+    uint8_t bg_chr   : 1;
+    uint8_t sprite   : 1;
+    uint8_t ppu      : 1;
+    uint8_t vblank   : 1; // MSB
+}PPU_Ctrl_1;
+typedef union{
+    uint8_t byte;
+    PPU_Ctrl_1 bit;
+}ppu_ctrl_1;
+
+ppu_ctrl_1 ppu_ctrl_basic = {0};
+void write_ppu_ctrl(uint8_t A)
+{
+    ppu_ctrl_basic.byte = A;
+    printf("ppu_ctrl_basic = 0x%02x\n", ppu_ctrl_basic.byte);
+}
+
 // 0x2003 書き込むスプライトのパターンテーブルのアドレス
 uint8_t sprite_index = 0;
 void write_oam_address(uint8_t add)

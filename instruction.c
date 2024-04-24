@@ -250,6 +250,10 @@ void STA_Absolute(Nes *nes)
 
         switch (address)
         {
+        case 0x2000:
+            // PPU制御レジスタ1
+            write_ppu_ctrl(nes->A);
+            break;
         case 0x2003:
             write_oam_address(nes->A);
             break;
